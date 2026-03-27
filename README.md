@@ -8,6 +8,8 @@
   <b>A complete desktop shell built on Quickshell for the Niri compositor</b><br>
 </p>
 
+---
+
 ## Quick Start
 
 ```bash
@@ -18,8 +20,6 @@ cd ViNiR
 ```
 
 The installer handles dependencies, configs, theming — everything.
-
-**Other distros:** The installer fully supports Arch only. Manual installation guide in [docs/INSTALL.md](docs/INSTALL.md).
 
 **Updating:**
 
