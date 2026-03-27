@@ -6,6 +6,7 @@
 
 <p align="center">
   <b>A complete desktop shell built on Quickshell for the Niri compositor</b><br>
+</p>
 
 ## Quick Start
 
