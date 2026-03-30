@@ -17,35 +17,43 @@ screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 // Run `niri msg outputs` inside a niri session to see connector names and modes.
 // Then edit and uncomment this block to pin a specific monitor layout.
 
-// -output "eDP-1" {
-    // mode "1920x1080@60"
-    // scale 1
-    // transform "normal"
-    // position x=0 y=0
-// }
+output "HDMI-A-1" {
+    mode "1920x1080@60.0"
+    position x=1680 y=0
+    scale 1.0
+}
+
+output "DP-2" {
+    mode "1680x1050@59.88"
+    position x=0 y=30
+    scale 1.0
+} 
 
 // ============================================================================
 // INPUT
 // ============================================================================
 
 input {
+
     keyboard {
         xkb {
-            layout "us"
+            layout "us,ru"
+            options "grp:alt_shift_toggle"
         }
         repeat-delay 250
-        repeat-rate 50
+        repeat-rate 35
+        track-layout "global"
     }
-    touchpad {
-        tap
-        tap-button-map "left-right-middle"
-    }
+
     mouse {
-        accel-profile "flat"
+        scroll-method "on-button-down"
+        scroll-button 274 // Или "middle"
+        scroll-factor 0.5
     }
 
     mod-key "Super"
     mod-key-nested "Alt"
+    focus-follows-mouse max-scroll-amount="0%"
 }
 
 // ============================================================================
@@ -126,11 +134,6 @@ window-rule {
     clip-to-geometry true
 }
 
-window-rule { 
-    match is-active=false
-    opacity 0.9
-}
-
 // ============================================================================
 // ANIMATIONS
 // ============================================================================
@@ -190,18 +193,25 @@ animations {
 
 environment {
     XDG_CURRENT_DESKTOP "niri"
-    XDG_MENU_PREFIX "plasma-"  // Required for Dolphin/KDE app file associations
+    XDG_MENU_PREFIX "plasma-"
     QT_QPA_PLATFORM "wayland"
     ELECTRON_OZONE_PLATFORM_HINT "auto"
     QT_LOGGING_RULES "quickshell.dbus.properties=false"
-    
-    // Qt theming: kde platform reads colors from kdeglobals (requires plasma-integration pkg)
-    // The installer falls back to qt6ct only if plasma-integration is not installed
     QT_QPA_PLATFORMTHEME "kde"
     QT_STYLE_OVERRIDE "Darkly"
-    
-    // Quickshell Python virtual environment
     ILLOGICAL_IMPULSE_VIRTUAL_ENV "$HOME/.local/state/quickshell/.venv"
+    GBM_BACKEND "amdgpu"
+    __GLX_VENDOR_LIBRARY_NAME "mesa"
+    LIBVA_DRIVER_NAME "radeonsi"
+    VDPAU_DRIVER "radeonsi"
+    __GL_THREADED_OPTIMIZATIONS "1"
+    mesa_glthread "true"
+    GDK_BACKEND "wayland,x11"
+    SDL_VIDEODRIVER "wayland,x11"
+    DISPLAY ":2"
+    XDG_SESSION_TYPE "wayland"
+    GTK_THEME "adw-gtk3-dark"
+    GTK2_RC_FILES "/usr/share/themes/adw-gtk3-dark/gtk-2.0/gtkrc"
 }
 
 // ============================================================================
@@ -209,13 +219,21 @@ environment {
 // ============================================================================
 
 // Import XDG_MENU_PREFIX to systemd for Dolphin/KDE app file associations
-spawn-at-startup "bash" "-c" "# systemctl --user (not needed on void) XDG_MENU_PREFIX && kbuildsycoca6"
-
+spawn-at-startup "kbuildsycoca6"
 spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store &"
-spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
+spawn-at-startup "/usr/libexec/polkit-kde-authentication-agent-1"
 spawn-at-startup "qs" "-c" "ii"
-
-// ============================================================================
+//spawn-at-startup "swww-daemon"
+spawn-at-startup "dbus-run-session" "pipewire"
+spawn-at-startup "pipewire-pulse"
+spawn-at-startup "wireplumber"
+spawn-at-startup "dbus-update-activation-environment" "--all"
+spawn-at-startup "/usr/libexec/xdg-desktop-portal-gtk" "-r"
+spawn-at-startup "sh" "-c" "sleep 5 && gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark' && gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'"
+//spawn-at-startup "sh" "-c" "sleep 10 && vesktop --ozone-platform-hint=auto --enable-features=WebRTCPipeWireCapturer,WaylandWindowDecorations,CanvasOopRasterization --enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist --start-minimized"
+spawn-at-startup "xwayland-satellite"
+spawn-at-startup "mprisence"
+//==============================================================
 // KEYBINDINGS
 // ============================================================================
 
@@ -223,17 +241,17 @@ binds {
     // System
     Mod+Tab repeat=false { toggle-overview; }
     Mod+Shift+E { quit; }
-    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+    //Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
     
     // ii Window Switcher (Alt+Tab)
     Alt+Tab { spawn "qs" "-c" "ii" "ipc" "call" "altSwitcher" "next"; }
     Alt+Shift+Tab { spawn "qs" "-c" "ii" "ipc" "call" "altSwitcher" "previous"; }
     
     // ii Overlay
-    Super+G { spawn "qs" "-c" "ii" "ipc" "call" "overlay" "toggle"; }
+    Mod+Shift+G { spawn "qs" "-c" "ii" "ipc" "call" "overlay" "toggle"; }
 
     // ii Overview (daemon)
-    Mod+Space repeat=false { spawn "qs" "-c" "ii" "ipc" "call" "overview" "toggle"; }
+    Mod+A repeat=false { spawn "qs" "-c" "ii" "ipc" "call" "overview" "toggle"; }
     
     // ii Clipboard
     Mod+V { spawn "qs" "-c" "ii" "ipc" "call" "clipboard" "toggle"; }
@@ -251,7 +269,9 @@ binds {
     
     // ii Settings
     Mod+Comma { spawn "qs" "-c" "ii" "ipc" "call" "settings" "open"; }
-    
+        
+	Mod+R { spawn "bash" "-c" "killall qs; sleep 1; qs -c ii &"; }
+	
     // ii Cheatsheet
     Mod+Slash { spawn "qs" "-c" "ii" "ipc" "call" "cheatsheet" "toggle"; }
     
@@ -259,16 +279,22 @@ binds {
     Mod+Shift+W { spawn "qs" "-c" "ii" "ipc" "call" "panelFamily" "cycle"; }
     
     // Applications (uses configured terminal from Settings)
-    Mod+T { spawn "bash" "-c" "$HOME/.config/quickshell/ii/scripts/launch-terminal.sh"; }
-    Mod+Return { spawn "bash" "-c" "$HOME/.config/quickshell/ii/scripts/launch-terminal.sh"; }
-    Super+E { spawn "nautilus"; }
-    Super+W { spawn "bash" "-c" "xdg-open https://"; }
+    Mod+Q { spawn "bash" "-c" "$HOME/.config/quickshell/ii/scripts/launch-terminal.sh"; }
+    // Mod+Return { spawn "bash" "-c" "$HOME/.config/quickshell/ii/scripts/launch-terminal.sh"; }
+    Super+E { spawn "dolphin"; }
+    Super+T { spawn "materialgram"; }
+    Super+G { spawn "lutris"; }
+    //Super+D { spawn "vesktop" "--ozone-platform-hint=auto" "--enable-features=WaylandWindowDecorations"; }
+	Super+D { spawn "/home/metanoia/myscripts/run-vesktop.sh"; }
+    Super+S { spawn "steam" "-cef-enable-features=UseOzonePlatform,WaylandWindowDecorations -cef-ozone-platform-hint=auto"; }
+    Super+B { spawn "helium-browser" "--ozone-platform-hint=auto" "--enable-features=WebRTCPipeWireCapturer,WaylandWindowDecorations" "--enable-gpu-rasterization" "--ignore-gpu-blocklist"; }
+    Backslash { spawn "/home/metanoia/myscripts/toggle-mic.sh"; }
     
     // Window management
-    Mod+Q repeat=false { spawn "bash" "-c" "$HOME/.config/quickshell/ii/scripts/close-window.sh"; }
-    Mod+D { maximize-column; }
+    Mod+C repeat=false { spawn "bash" "-c" "$HOME/.config/quickshell/ii/scripts/close-window.sh"; }
+    Mod+X { maximize-column; }
     Mod+F { fullscreen-window; }
-    Mod+A { toggle-window-floating; }
+    Mod+Space { toggle-window-floating; }
 
     // Focus
     Mod+Left { focus-column-left; }
@@ -343,7 +369,7 @@ binds {
     Mod+Shift+B { spawn "qs" "-c" "ii" "ipc" "call" "mpris" "previous"; }
     
     // Power / Session
-    Mod+Shift+Q { spawn "qs" "-c" "ii" "ipc" "call" "session" "toggle"; }
+    Mod+Escape { spawn "qs" "-c" "ii" "ipc" "call" "session" "toggle"; }
 }
 
 // Layer rules for ii backdrop visibility during Niri overview

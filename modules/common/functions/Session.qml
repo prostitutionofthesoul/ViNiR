@@ -25,12 +25,11 @@ Singleton {
         interval: 900
         repeat: false
         onTriggered: {
-            Quickshell.execDetached(["/usr/bin/systemctl", "hibernate", "-i"])
             Quickshell.execDetached(["/usr/bin/loginctl", "hibernate"])
         }
     }
 
-	Timer {
+    Timer {
         id: _suspendTimer
         interval: 1000 
         repeat: false
@@ -40,7 +39,6 @@ Singleton {
     }
 
     function closeAllWindows() {
-        // Sólo tiene sentido en sesiones Hyprland; en Niri no hay HyprlandData
         if (!CompositorService.isHyprland)
             return;
 
@@ -54,10 +52,10 @@ Singleton {
     }
 
     function suspend() {
-            lock();
-            _suspendTimer.interval = 1000; 
-            _suspendTimer.restart();
-        }
+        lock();
+        _suspendTimer.interval = 1000; 
+        _suspendTimer.restart();
+    }
 
     function logout() {
         if (CompositorService.isNiri) {
@@ -70,9 +68,9 @@ Singleton {
     }
 
     function launchTaskManager() {
-            const cmd = Config.options?.apps?.taskManager ?? "/usr/local/bin/missioncenter"
-            Quickshell.execDetached([cmd]) 
-        }
+        const cmd = Config.options?.apps?.taskManager ?? "missioncenter"
+        Quickshell.execDetached([cmd]) 
+    }
 
     function hibernate() {
         lock();
@@ -82,19 +80,16 @@ Singleton {
 
     function poweroff() {
         closeAllWindows();
-        Quickshell.execDetached(["/usr/bin/systemctl", "poweroff", "-i"])
         Quickshell.execDetached(["/usr/bin/loginctl", "poweroff"])
     }
 
     function reboot() {
         closeAllWindows();
-        Quickshell.execDetached(["/usr/bin/systemctl", "reboot", "-i"])
         Quickshell.execDetached(["/usr/bin/loginctl", "reboot"])
     }
 
     function rebootToFirmware() {
         closeAllWindows();
-        Quickshell.execDetached(["/usr/bin/systemctl", "reboot", "--firmware-setup"])
         Quickshell.execDetached(["/usr/bin/loginctl", "reboot", "--firmware-setup"])
     }
 }
