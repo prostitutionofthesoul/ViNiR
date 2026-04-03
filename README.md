@@ -10,7 +10,7 @@
 
 ---
 
-## Quick Start
+## Quick Start(INSTALLER IS BROKEN, WILL BE FIXED LATER)
 
 ```bash
 git clone https://github.com/prostitutionofthesoul/ViNiR.git
