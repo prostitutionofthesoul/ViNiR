@@ -399,7 +399,7 @@ Singleton {
     Process {
         id: discoverOverlayStopProc
         command: [
-            "/usr/bin/systemctl",
+            "/usr/bin/loginctl",
             "--user",
             "stop",
             root._discoverOverlayServiceName
@@ -426,7 +426,7 @@ Singleton {
     Process {
         id: discoverOverlayStartProc
         command: [
-            "/usr/bin/systemctl",
+            "/usr/bin/loginctl",
             "--user",
             "start",
             root._discoverOverlayServiceName

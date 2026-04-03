@@ -57,9 +57,9 @@ AndroidQuickToggleButton {
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 Quickshell.execDetached([root.notifySendPath,
-                    Translation.tr("Cloudflare WARP"), 
-                    Translation.tr("Connection failed. Please inspect manually with the <tt>warp-cli</tt> command")
-                    , "-a", "Shell"
+                    Translation.tr("Cloudflare WARP"),
+                    Translation.tr("Connection failed. Please inspect manually with the <tt>warp-cli</tt> command"),
+                    "-a", "Shell"
                 ])
             }
             root.refreshStatus();
@@ -70,15 +70,8 @@ AndroidQuickToggleButton {
         id: registrationProc
         command: [root.warpCliPath, "registration", "new"]
         onExited: (exitCode, exitStatus) => {
-            console.log("Warp registration exited with code and status:", exitCode, exitStatus)
             if (exitCode === 0) {
                 connectProc.running = true
-            } else {
-                Quickshell.execDetached([root.notifySendPath,
-                    Translation.tr("Cloudflare WARP"), 
-                    Translation.tr("Registration failed. Please inspect manually with the <tt>warp-cli</tt> command"),
-                    "-a", "Shell"
-                ])
             }
         }
     }
@@ -87,17 +80,13 @@ AndroidQuickToggleButton {
         id: fetchActiveState
         running: false
         command: ["/bin/sh", "-c", root.warpCliPath + " status"]
-        onExited: (exitCode, exitStatus) => {
-            if (exitCode !== 0) {
-                root.visible = true
-            }
-        }
+
         stdout: StdioCollector {
             id: warpStatusCollector
             onStreamFinished: {
                 const out = warpStatusCollector.text
 
-                if (out.length > 0 || out.includes("Unable")) {
+                if (out.length > 0) {
                     root.visible = true
                 }
 
@@ -121,12 +110,12 @@ AndroidQuickToggleButton {
 
     Process {
         id: startServiceProc
-        command: ["/usr/bin/systemctl", "start", "warp-svc.service"]
+        command: ["sudo", "/usr/bin/sv", "up", "warp-svc"]
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 Quickshell.execDetached([root.notifySendPath,
                     Translation.tr("Cloudflare WARP"),
-                    Translation.tr("Failed to start warp-svc. You may need to run: <tt>sudo systemctl start warp-svc</tt>"),
+                    Translation.tr("Failed to start warp-svc. You may need to run: <tt>sudo sv up warp-svc</tt>"),
                     "-a", "Shell"
                 ])
             }

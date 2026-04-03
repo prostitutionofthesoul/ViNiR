@@ -11,7 +11,7 @@ Singleton {
     id: root
 
     property bool hasRun: false
-    property bool _systemdUnitsRefreshRequested: false
+    property bool _unitsRefreshRequested: false
     readonly property bool globalEnabled: Config.options?.autostart?.enable ?? false
 
     readonly property var entries: (Config.options?.autostart && Config.options?.autostart?.entries)
@@ -23,7 +23,6 @@ Singleton {
     function load() {
         if (hasRun)
             return;
-
         hasRun = true;
 
         if (Config.ready) {
@@ -34,11 +33,9 @@ Singleton {
     function startFromConfig() {
         if (!globalEnabled)
             return;
-
         const cfg = Config.options?.autostart;
         if (!cfg || !cfg.entries)
             return;
-
         for (let i = 0; i < cfg.entries.length; ++i) {
             const entry = cfg.entries[i];
             if (!entry || entry.enabled !== true)
@@ -50,7 +47,6 @@ Singleton {
     function startEntry(entry) {
         if (!entry)
             return;
-
         if (entry.type === "desktop" && entry.desktopId) {
             startDesktop(entry.desktopId);
         } else if (entry.type === "command" && entry.command) {
@@ -61,11 +57,9 @@ Singleton {
     function startDesktop(desktopId) {
         if (!desktopId)
             return;
-
         const id = String(desktopId).trim();
         if (id.length === 0)
             return;
-
         startDesktopProc.desktopId = id
         startDesktopProc.running = true
     }
@@ -85,11 +79,9 @@ Singleton {
     function startCommand(command) {
         if (!command)
             return;
-
         const cmd = String(command).trim();
         if (cmd.length === 0)
             return;
-
         Quickshell.execDetached(["/usr/bin/bash", "-lc", cmd]);
     }
 
@@ -98,20 +90,16 @@ Singleton {
         property var buffer: []
         command: [
             "/usr/bin/bash", "-lc",
-            "dir=\"$HOME/.config/systemd/user\"; "
+            "dir=\"$HOME/.config/autostart\"; "
             + "[ -d \"$dir\" ] || exit 0; "
-            + "for f in \"$dir\"/*.service; do "
+            + "for f in \"$dir\"/*.desktop; do "
             + "[ -e \"$f\" ] || continue; "
             + "name=$(basename \"$f\"); "
-            + "enabled=$(/usr/bin/systemctl --user is-enabled \"$name\" 2>/dev/null || echo disabled); "
-            + "desc=$(grep -m1 '^Description=' \"$f\" | cut -d= -f2-); "
-            + "wanted=$(grep -m1 '^WantedBy=' \"$f\" | cut -d= -f2-); "
-            + "after=$(grep -m1 '^After=' \"$f\" | cut -d= -f2-); "
-            + "desc=${desc//|/ }; wanted=${wanted//|/ }; kind=session; "
-            + "printf '%s\n' \"$wanted\" \"$after\" | grep -q 'tray-apps.target' && kind=tray; "
+            + "enabled=enabled; "
+            + "desc=$(grep -m1 '^Comment=' \"$f\" | cut -d= -f2-); "
             + "ii_managed=no; "
-            + "grep -q '^# ii-autostart' \"$f\" 2>/dev/null && ii_managed=yes; "
-            + "echo \"$name|$enabled|$kind|$desc|$wanted|$ii_managed\"; "
+            + "grep -q 'ii-autostart' \"$f\" 2>/dev/null && ii_managed=yes; "
+            + "echo \"$name|$enabled|session|$desc|none|$ii_managed\"; "
             + "done"
         ]
         stdout: SplitParser {
@@ -122,7 +110,6 @@ Singleton {
         onExited: (exitCode, exitStatus) => {
             const units = []
             if (exitCode !== 0) {
-                console.log("[Autostart] systemdListProc exited with", exitCode, exitStatus)
                 root.systemdUnits = units
                 systemdListProc.buffer = []
                 return;
@@ -135,24 +122,15 @@ Singleton {
                 const parts = raw.split("|")
                 if (parts.length < 6)
                     continue;
-                const name = parts[0]
-                const state = parts[1]
-                const kind = parts[2]
-                const desc = parts.length > 3 ? parts[3] : ""
-                const wanted = parts.length > 4 ? parts[4] : ""
-                const enabled = state.indexOf("enabled") !== -1
-                const isTray = kind === "tray"
-                const iiManaged = parts[5] === "yes"
                 units.push({
-                    name: name,
-                    state: state,
-                    description: desc,
-                    enabled: enabled,
-                    isTray: isTray,
-                    iiManaged: iiManaged
+                    name: parts[0],
+                    state: parts[1],
+                    description: parts[3],
+                    enabled: true,
+                    isTray: false,
+                    iiManaged: parts[5] === "yes"
                 })
             }
-            console.log("[Autostart] Loaded", units.length, "user systemd services")
             root.systemdUnits = units
             systemdListProc.buffer = []
         }
@@ -164,7 +142,7 @@ Singleton {
     }
 
     function requestRefreshSystemdUnits(): void {
-        root._systemdUnitsRefreshRequested = true
+        root._unitsRefreshRequested = true
         refreshTimer.restart()
     }
 
@@ -173,74 +151,21 @@ Singleton {
         interval: 1200
         repeat: false
         onTriggered: {
-            if (!root._systemdUnitsRefreshRequested)
+            if (!root._unitsRefreshRequested)
                 return;
-            if (!(Config.ready ?? false))
-                return;
-            root._systemdUnitsRefreshRequested = false
+            root._unitsRefreshRequested = false
             root.refreshSystemdUnits()
         }
     }
 
-    Process {
-        id: systemdToggleProc
-        function toggle(name, enabled) {
-            if (!name || name.length === 0)
-                return;
-            const op = enabled ? "enable" : "disable"
-            console.log("[Autostart] Toggling user service", name, "->", enabled ? "enabled" : "disabled")
-            exec(["/usr/bin/systemctl", "--user", op, "--now", name])
-        }
-        onExited: (exitCode, exitStatus) => {
-            console.log("[Autostart] systemdToggleProc exited with", exitCode, exitStatus)
-            refreshSystemdUnits()
-        }
-    }
-
-    FileView {
-        id: userServiceWriter
-    }
-
-    Process {
-        id: systemdCreateProc
-        function activate(unitName) {
-            if (!unitName || unitName.length === 0)
-                return;
-            console.log("[Autostart] Activating new user service", unitName)
-            const escaped = StringUtils.shellSingleQuoteEscape(unitName)
-            exec(["/usr/bin/bash", "-lc", "/usr/bin/systemctl --user daemon-reload\n/usr/bin/systemctl --user enable --now '" + escaped + "' 2>/dev/null || true"])
-        }
-        onExited: (exitCode, exitStatus) => {
-            console.log("[Autostart] systemdCreateProc exited with", exitCode, exitStatus)
-            refreshSystemdUnits()
-        }
-    }
-
-    Process {
-        id: systemdDeleteProc
-        function remove(name) {
-            if (!name || name.length === 0)
-                return;
-            const home = Quickshell.env("HOME")
-            const dir = `${home}/.config/systemd/user`
-            console.log("[Autostart] Deleting user service", name)
-            const cmd = "/usr/bin/systemctl --user disable --now '" + name
-                + "' 2>/dev/null || true; "
-                // Only remove units that were created by ii Autostart (marker comment)
-                + "if grep -q '^# ii-autostart' '" + dir + "/" + name + "' 2>/dev/null; then "
-                + "/usr/bin/rm -f '" + dir + "/" + name + "' 2>/dev/null || true; "
-                + "fi; "
-                + "/usr/bin/systemctl --user daemon-reload"
-            exec(["/usr/bin/bash", "-lc", cmd])
-        }
-        onExited: (exitCode, exitStatus) => {
-            console.log("[Autostart] systemdDeleteProc exited with", exitCode, exitStatus)
-            refreshSystemdUnits()
-        }
-    }
-
     function setServiceEnabled(name, enabled) {
-        systemdToggleProc.toggle(name, enabled)
+    }
+
+    function deleteUserService(name) {
+        if (!name || name.length === 0)
+            return;
+        Quickshell.execDetached(["/usr/bin/rm", "-f", Directories.home + "/.config/autostart/" + name])
+        refreshSystemdUnits()
     }
 
     function createUserService(name, description, command, kind) {
@@ -249,48 +174,32 @@ Singleton {
         const trimmedName = String(name).trim()
         if (trimmedName.length === 0)
             return;
-        const exec = String(command || "").trim()
-        if (exec.length === 0)
+        const execLine = String(command || "").trim()
+        if (execLine.length === 0)
             return;
         const safeName = trimmedName.replace(/\s+/g, "-")
         const desc = String(description || safeName)
-        const isTray = kind === "tray"
-        const afterTarget = isTray ? "tray-apps.target" : "graphical-session.target"
-        const wantedByTarget = isTray ? "tray-apps.target" : "graphical-session.target"
-        // Build path using XDG home directory and trim any file:// prefix to get a real filesystem path
         const homePath = FileUtils.trimFileProtocol(Directories.home)
-        const dir = `${homePath}/.config/systemd/user`
-        const filePath = `${dir}/${safeName}.service`
-        const text = "# ii-autostart\n"
-            + "[Unit]\n"
-            + "Description=" + desc + "\n"
-            + "After=" + afterTarget + "\n"
-            + "\n"
-            + "[Service]\n"
-            + "Type=simple\n"
-            + "ExecStart=" + exec + "\n"
-            + "Restart=on-failure\n"
-            + "RestartSec=3\n"
-            + "\n"
-            + "[Install]\n"
-            + "WantedBy=" + wantedByTarget + "\n"
-        console.log("[Autostart] Writing user service file", filePath)
-        // Ensure the user systemd directory exists before writing the file
+        const dir = `${homePath}/.config/autostart`
+        const filePath = `${dir}/${safeName}.desktop`
+        const text = "[Desktop Entry]\n"
+            + "Type=Application\n"
+            + "Name=" + safeName + "\n"
+            + "Comment=" + desc + " (ii-autostart)\n"
+            + "Exec=" + execLine + "\n"
+            + "X-GNOME-Autostart-enabled=true\n"
         Quickshell.execDetached(["/usr/bin/mkdir", "-p", dir])
         userServiceWriter.path = Qt.resolvedUrl(filePath)
         userServiceWriter.setText(text)
-        systemdCreateProc.activate(safeName + ".service")
+        refreshSystemdUnits()
     }
 
-    function deleteUserService(name) {
-        if (!name || name.length === 0)
-            return;
-        systemdDeleteProc.remove(name)
+    FileView {
+        id: userServiceWriter
     }
 
     Component.onCompleted: {
         load()
-        // Defer systemd scanning to keep shell startup smooth.
         root.requestRefreshSystemdUnits()
     }
 

@@ -134,7 +134,7 @@ QuickToggleButton {
 
     Process {
         id: startServiceProc
-        command: ["/usr/bin/systemctl", "start", "warp-svc.service"]
+        command: ["/usr/bin/loginctl", "start", "warp-svc.service"]
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 Quickshell.execDetached([root.notifySendPath,

@@ -69,7 +69,7 @@ Singleton {
 
     Process {
         id: suspendSystemctl
-        command: ["/usr/bin/systemctl", "suspend"]
+        command: ["/usr/bin/loginctl", "suspend"]
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 suspendLoginctl.running = true

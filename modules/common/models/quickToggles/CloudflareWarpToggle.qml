@@ -73,7 +73,6 @@ QuickToggleModel {
         id: registrationProc
         command: [root.warpCliPath, "registration", "new"]
         onExited: (exitCode, exitStatus) => {
-            console.log("Warp registration exited with code and status:", exitCode, exitStatus)
             if (exitCode === 0) {
                 connectProc.running = true
             } else {
@@ -117,8 +116,6 @@ QuickToggleModel {
         }
 
         onExited: (exitCode, exitStatus) => {
-            // If warp-cli doesn't exist, process fails silently
-            // Disable toggle in that case
             if (exitCode !== 0) {
                 root.available = false
                 root._daemonRunning = false
@@ -128,12 +125,12 @@ QuickToggleModel {
 
     Process {
         id: startServiceProc
-        command: ["/usr/bin/systemctl", "start", "warp-svc.service"]
+        command: ["sudo", "/usr/bin/sv", "up", "warp-svc"]
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 Quickshell.execDetached([root.notifySendPath,
                     Translation.tr("Cloudflare WARP"),
-                    Translation.tr("Failed to start warp-svc. You may need to run: <tt>sudo systemctl start warp-svc</tt>"),
+                    Translation.tr("Failed to start warp-svc. You may need to run: <tt>sudo sv up warp-svc</tt>"),
                     "-a", "Shell"
                 ])
             }

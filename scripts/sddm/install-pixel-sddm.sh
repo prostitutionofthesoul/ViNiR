@@ -201,26 +201,12 @@ fi
 
 # Enable SDDM service (only on first install — on updates the service is already enabled,
 # and running sudo without a terminal would fail in IPC mode)
-if command -v systemctl &>/dev/null && [[ -d /run/systemd/system ]]; then
-    if ! systemctl is-enabled sddm.service &>/dev/null 2>&1; then
-        # Handle conflicting display-manager.service symlink (e.g., plasmalogin, gdm, etc.)
-        if [[ -L /etc/systemd/system/display-manager.service ]]; then
-            current_dm=$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
-            if [[ "$current_dm" != "sddm.service" ]]; then
-                log_info "Removing conflicting display-manager.service -> ${current_dm}"
-                elevate rm -f /etc/systemd/system/display-manager.service 2>/dev/null || true
-            fi
-        fi
-        
-        # Disable known conflicting display managers
-        for dm in gdm lightdm lxdm greetd plasmalogin; do
-            if systemctl is-enabled "${dm}.service" &>/dev/null 2>&1; then
-                log_info "Disabling conflicting display manager: ${dm}"
-                elevate systemctl disable "${dm}.service" 2>/dev/null || true
-            fi
-        done
-        
-        elevate systemctl enable sddm.service 2>/dev/null && log_ok "SDDM service enabled"
+# Активация сервиса SDDM для Void Linux
+if command -v sv &>/dev/null; then
+    if [ ! -L /var/service/sddm ]; then
+        log_info "Enabling SDDM service via runit..."
+        elevate ln -s /etc/sv/sddm /var/service/
+        log_ok "SDDM service enabled"
     fi
 fi
 
